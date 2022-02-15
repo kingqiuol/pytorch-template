@@ -134,8 +134,33 @@ You can choose whether to use TensorBoard to visualize your training procedure
 The result I can get from a certain model, since I use the same hyperparameters to train all the networks, some networks might not get the best result from these hyperparameters, you could try yourself by finetuning the hyperparameters to get
 better result.
 
+不同模型结构的比较：
+
+|  network  | params | top1 err | top5 err | acc  | **mAP** | total epoch |
+| :-------: | :----: | :------: | :------: | :--: | :-----: | :---------: |
+| resnet18  |  42.8  |   0.24   |  0.0716  | 0.75 |  0.78   |     200     |
+| resnet50  |  90.7  |   0.21   |  0.0555  | 0.78 |  0.84   |     200     |
+| resnet101 |  163   |   0.21   |  0.0552  | 0.79 |  0.84   |     200     |
+
+不同优化策略的比较：
+
+|     network     |                            method                            |  acc   |
+| :-------------: | :----------------------------------------------------------: | :----: |
+|    resnet50     |                        SGD+warmup+CE                         |  0.78  |
+|    resnet50     |                  SGD+warmup+random_erase+CE                  |  0.79  |
+|    resnet50     |            SGD+warmup+random_erase+autoaugment+CE            | 0.815  |
+|    resnet50     |           adam+warmup+random_erase+autoaugment+CE            |  0.79  |
+|    resnet50     |          ranger+warmup+random_erase+autoaugment+CE           |  0.65  |
+|    resnet50     |            SAM+warmup+random_erase+autoaugment+CE            | 0.8311 |
+|    resnet50     |        SAM+warmup+random_erase+autoaugment+smooth_CE         | 0.833  |
+| wideresnet40_10 |        SAM+warmup+random_erase+autoaugment+smooth_CE         | 0.840  |
+| wideresnet40_10 |      SAM+warmup+random_erase+autoaugment+smooth_CE+TTA       | 0.8437 |
+| wideresnet40_10 | SAM+warmup+random_erase+autoaugment+smooth_CE+TTA+K_flold_模型集成 |        |
+
+
+
 |dataset|network|params|top1 err|top5 err|epoch(lr = 0.1)|epoch(lr = 0.02)|epoch(lr = 0.004)|epoch(lr = 0.0008)|total epoch|
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 |cifar100|mobilenet|3.3M|34.02|10.56|60|60|40|40|200|
 |cifar100|mobilenetv2|2.36M|31.92|09.02|60|60|40|40|200|
 |cifar100|squeezenet|0.78M|30.59|8.36|60|60|40|40|200|

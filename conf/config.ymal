@@ -1,0 +1,64 @@
+MODEL:
+  NAME: 'wideresnet'
+  N_CHANNEL: 3
+  N_CLASS: 100
+  USE_GPU: True
+
+INPUT:
+  SIZE: [32,32]
+  TRAIN_MEAN: [0.5070751592371323, 0.48654887331495095, 0.4409178433670343]
+  TRAIN_STD: [0.2673342858792401, 0.2564384629170883, 0.27615047132568404]
+
+  RANDOM_ERASE: # 随机擦除
+    RE_PROB: 0.5 # random erasing
+    RE_MAX_RATIO: 0.4
+
+  USE_MIX_UP: False
+  USE_CUT_MIX: False
+  USE_AUGMIX: False
+  USE_AUTOAUG: True
+
+DATASETS:
+  PATH: r'D:\PycharmProjects\pytorch-template\data\cifar-100-python'
+DATALOADER:
+  NUM_WORKERS: 4
+
+SOLVER:
+  OPTIMIZER: 'SAM'
+  MOMENTUM: 0.9
+  WEIGHT_DECAY: 0.0005
+
+  LOSS: "smooth_CE" # loss method
+
+
+  # SAM setting
+  RHO: 2.0
+  ADAPTIVE: True
+
+
+  LR: 0.1
+  MIN_LR: 3e-6
+  USE_WARMUP: True
+  WARMUP_EPOCH: 5
+  WARMUP_BEGAIN_LR: 3e-05
+  WARMUP_METHOD: "linear"
+
+  STEPS: [60, 120, 160]
+  GAMMA: 0.1
+
+  EPOCH: 200
+  BATCH_SIZE: 128
+  SAVE_EPOCH: 10
+
+  RESUME: False
+
+  USE_TTA: True
+
+OUTPUT:
+  CHECKPOINT_PATH: 'checkpoint' #directory to save weights file
+  DATE_FORMAT: '%A_%d_%B_%Y_%Hh_%Mm_%Ss'
+
+  LOG_DIR: 'runs' #tensorboard log dir
+
+  WEIGHTS: "./checkpoint/wideresnet/wideresnet-200-best.pth"
+
