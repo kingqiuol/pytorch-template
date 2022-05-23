@@ -20,7 +20,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from conf import settings
 
-from datasets.cifar100_dataset import get_test_dataloader, get_training_dataloader
+from datasets.cifar100_dataset import get_test_dataloader, get_training_dataloader,get_training_kfold_dataloader
 from models.get_networks import get_network
 from utils.optim import Ranger,SAM
 from utils.scheduler import WarmUpLR, GradualWarmupScheduler
@@ -159,21 +159,6 @@ if __name__ == '__main__':
 	# networks
 	net = get_network(cfg)
 
-	# data preprocessing:
-	cifar100_training_loader = get_training_dataloader(
-		cfg,
-		num_workers=cfg.DATALOADER.NUM_WORKERS,
-		batch_size=cfg.SOLVER.BATCH_SIZE,
-		shuffle=True
-	)
-
-	cifar100_test_loader = get_test_dataloader(
-		cfg,
-		num_workers=cfg.DATALOADER.NUM_WORKERS,
-		batch_size=cfg.SOLVER.BATCH_SIZE,
-		shuffle=True
-	)
-
 	if cfg.SOLVER.LOSS=="CE":
 		loss_function = nn.CrossEntropyLoss()
 	elif cfg.SOLVER.LOSS=="smooth_CE":
@@ -193,7 +178,7 @@ if __name__ == '__main__':
 					  lr=cfg.SOLVER.LR,momentum=cfg.SOLVER.MOMENTUM, weight_decay=cfg.SOLVER.WEIGHT_DECAY)
 
 	# train_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=settings.MILESTONES, gamma=0.2) #learning rate decay
-	iter_per_epoch = len(cifar100_training_loader)
+	# iter_per_epoch = len(cifar100_training_loader)
 
 	if cfg.SOLVER.USE_WARMUP:
 		scheduler_steplr = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, cfg.SOLVER.EPOCH, eta_min=1e-5,
@@ -227,7 +212,7 @@ if __name__ == '__main__':
 	# create checkpoint folder to save model
 	if not os.path.exists(checkpoint_path):
 		os.makedirs(checkpoint_path)
-	checkpoint_path = os.path.join(checkpoint_path, '{net}-{epoch}-{type}.pth')
+	checkpoint_path = os.path.join(checkpoint_path, '{net}-{epoch}-{type}-{k_fold}.pth')
 
 	best_acc = 0.0
 	if cfg.SOLVER.RESUME:
@@ -249,31 +234,83 @@ if __name__ == '__main__':
 
 		resume_epoch = last_epoch(os.path.join(settings.CHECKPOINT_PATH, cfg.MODEL.NAME, recent_folder))
 
-	for epoch in range(1, settings.EPOCH + 1):
-		# if epoch > args.warm:
-		#     train_scheduler.step(epoch)
+	if not cfg.DATALOADER.K_FOLD:
+		# data preprocessing
+		cifar100_training_loader = get_training_dataloader(
+			cfg,
+			num_workers=cfg.DATALOADER.NUM_WORKERS,
+			batch_size=cfg.SOLVER.BATCH_SIZE,
+			shuffle=True
+		)
 
-		if cfg.SOLVER.RESUME:
-			if epoch <= resume_epoch:
+		cifar100_test_loader = get_test_dataloader(
+			cfg,
+			num_workers=cfg.DATALOADER.NUM_WORKERS,
+			batch_size=cfg.SOLVER.BATCH_SIZE,
+			shuffle=True
+		)
+
+
+		for epoch in range(1, settings.EPOCH + 1):
+			# if epoch > args.warm:
+			#     train_scheduler.step(epoch)
+
+			if cfg.SOLVER.RESUME:
+				if epoch <= resume_epoch:
+					continue
+
+			# log.train(len_dataset=len(cifar100_training_loader))
+			train(epoch)
+			# log.eval(len_dataset=len(cifar100_test_loader))
+			acc = eval_training(epoch)
+
+			# start to save best performance model after learning rate decay to 0.01
+			if epoch > settings.MILESTONES[1] and best_acc < acc:
+				weights_path = checkpoint_path.format(net=cfg.MODEL.NAME, epoch=epoch, type='best',k_fold=0)
+				print('saving weights file to {}'.format(weights_path))
+				torch.save(net.state_dict(), weights_path)
+				best_acc = acc
 				continue
 
-		# log.train(len_dataset=len(cifar100_training_loader))
-		train(epoch)
-		# log.eval(len_dataset=len(cifar100_test_loader))
-		acc = eval_training(epoch)
+			if not epoch % settings.SAVE_EPOCH:
+				weights_path = checkpoint_path.format(net=cfg.MODEL.NAME, epoch=epoch, type='regular',k_fold=0)
+				print('saving weights file to {}'.format(weights_path))
+				torch.save(net.state_dict(), weights_path)
+	else:
+		for n in range(cfg.DATALOADER.K):
+			print('Training kfold set {}'.format(n))
 
-		# start to save best performance model after learning rate decay to 0.01
-		if epoch > settings.MILESTONES[1] and best_acc < acc:
-			weights_path = checkpoint_path.format(net=cfg.MODEL.NAME, epoch=epoch, type='best')
-			print('saving weights file to {}'.format(weights_path))
-			torch.save(net.state_dict(), weights_path)
-			best_acc = acc
-			continue
 
-		if not epoch % settings.SAVE_EPOCH:
-			weights_path = checkpoint_path.format(net=cfg.MODEL.NAME, epoch=epoch, type='regular')
-			print('saving weights file to {}'.format(weights_path))
-			torch.save(net.state_dict(), weights_path)
+			cifar100_training_loader, cifar100_test_loader=get_training_kfold_dataloader(cfg=cfg,
+																						k=cfg.DATALOADER.K,n=n,
+																						num_workers=cfg.DATALOADER.NUM_WORKERS,
+																						batch_size=cfg.SOLVER.BATCH_SIZE,
+																						shuffle=False)
+			for epoch in range(1, settings.EPOCH + 1):
+				# if epoch > args.warm:
+				#     train_scheduler.step(epoch)
+
+				if cfg.SOLVER.RESUME:
+					if epoch <= resume_epoch:
+						continue
+
+				# log.train(len_dataset=len(cifar100_training_loader))
+				train(epoch)
+				# log.eval(len_dataset=len(cifar100_test_loader))
+				acc = eval_training(epoch)
+
+				# start to save best performance model after learning rate decay to 0.01
+				if epoch > settings.MILESTONES[1] and best_acc < acc:
+					weights_path = checkpoint_path.format(net=cfg.MODEL.NAME, epoch=epoch, type='best',k_fold=n)
+					print('saving weights file to {}'.format(weights_path))
+					torch.save(net.state_dict(), weights_path)
+					best_acc = acc
+					continue
+
+				if not epoch % settings.SAVE_EPOCH:
+					weights_path = checkpoint_path.format(net=cfg.MODEL.NAME, epoch=epoch, type='regular',k_fold=n)
+					print('saving weights file to {}'.format(weights_path))
+					torch.save(net.state_dict(), weights_path)
 
 	# log.flush()
 	writer.close()

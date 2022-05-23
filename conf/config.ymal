@@ -22,6 +22,8 @@ DATASETS:
   PATH: r'D:\PycharmProjects\pytorch-template\data\cifar-100-python'
 DATALOADER:
   NUM_WORKERS: 4
+  K_FOLD: True
+  K: 5
 
 SOLVER:
   OPTIMIZER: 'SAM'
@@ -52,7 +54,7 @@ SOLVER:
 
   RESUME: False
 
-  USE_TTA: True
+  USE_TTA: False
 
 OUTPUT:
   CHECKPOINT_PATH: 'checkpoint' #directory to save weights file
