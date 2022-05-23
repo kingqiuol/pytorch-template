@@ -134,6 +134,25 @@
 
 ### 6、整体思路
 
+- lr:
+  - warmup (5 epoch)
+  - cosine lr decay
+  - lr=0.1
+  - total epoch(200 epoch)
+- bs=128
+- aug:
+  - Random Crop and resize
+  - Random left-right flipping
+  - Random rotation
+  - AutoAugment
+  - Normalization
+  - Random Erasing
+- weight decay=5e-4 (bias and bn undecayed)
+- kaiming weight init
+- optimizer: SAM
+- loss: smooth_CE
+- TTA
+
 我们初步训练resnet50作为基础模型，实验测试过程如下：
 
 |     network     |                      method                       |  acc   |
